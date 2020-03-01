@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+pacman::p_load(caret, data.table, MASS, ggplot2, stringr, lubridate, tidyverse, sp, geosphere, leaflet)
+options(digits = 3, scipen = 999)
+options(stringsAsFactors=TRUE)
+library(stringr)
+library(lubridate)
+library(tidyverse)
+
+library(knitr)
+library(rpart)
+
+library(modelr)
+library(sp)
+library(leaflet)
+library(geosphere)
+```
+
+```{r}
+df = read.csv("ANZ_transaction_data.csv")
+```
+
+```{r}
+# examine the summary of the dataset
+class(df)
+summary(df)
+str(df)
+
+# change the format of date column
+df$date = as.character(df$date)
+df[c(1559:nrow(df)), c("date")] <- as.Date(df[c(1559:nrow(df)), c("date")],format = "%m/%d/%Y")
+df$date[order(df$date)[1]]
+
+# the dateset only contain records for 91 days, one day is missing
+DateRange <- seq(min(df$date), max(df$date), by = 1)
+DateRange[!DateRange %in% df$date] 
+# 2018-08-16 transactions are missing
+
+
+# derive weekday and hour data of each transaction
+df$extraction = as.character(df$extraction)
+df$hour = hour(as.POSIXct(substr(df$extraction,12,19),format="%H:%M:%S"))
+df$weekday = weekdays(df$date)
+
+# confirm the one -to -one link of account_id and customer_id
+df %>% select(account,customer_id) %>%
+unique() %>%
+nrow()
+
+# split customer & merchant lat_long into individual columns for analysis
+dfloc = df[,c("long_lat","merchant_long_lat")]
+dfloc<- dfloc %>% separate("long_lat", c("c_long", "c_lat"),sep=' ')
+dfloc<- dfloc %>% separate("merchant_long_lat", c("m_long", "m_lat"),sep=' ')
+dfloc<- data.frame(sapply(dfloc, as.numeric))
+df <- cbind(df,dfloc)
+
+# check the range of customer location
+# filtering out transactions for those who don't reside in Australia
+df_temp <- df %>%
+filter (!(c_long >113 & c_long <154 & c_lat > (-44) & c_lat < (-10)))
+length(unique(df_temp$customer_id))
+```
+
+
+```{r}
+a = "10/31/2018"
+as.Date(a, format="%m/%d/%Y")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
